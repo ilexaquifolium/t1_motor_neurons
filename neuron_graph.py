@@ -12,11 +12,9 @@ def prepare_graph_data(csv_name):
     types = {}
     connections = []
     for index, row in df.iterrows():
-        weighted_edges.append((startneuron, index, row["count"]/150))
+        weighted_edges.append((startneuron, index, row["weight"]/150))
         types[index] = row["type"]
     return neurons, weighted_edges, types
-
-
 
 def show_graph(neuronIDs, edges, types):
     G = nx.DiGraph()
@@ -33,15 +31,16 @@ def show_graph(neuronIDs, edges, types):
     color_map = []
 
     for node in G:
-        if node in types:
-            print(types[node])
-        # if the node represents an interneuron
         if node not in types:
             color_map.append("green")
         elif str(types[node]).startswith("IN"):
+            # if the node represents an interneuron
             color_map.append("blue")
-        else:
+        elif str(types[node]).endswith("MN"):
+            # if the node represents an Motor Neuron
             color_map.append("red")
+        else:
+            color_map.append("black")
 
 
     nx.draw_networkx_nodes(G,pos,
