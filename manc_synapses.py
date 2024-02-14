@@ -1,7 +1,7 @@
 import neuprint
 import os
 import pandas as pd
-client = neuprint.Client('neuprint.janelia.org', dataset='manc:v1.0')
+client = neuprint.Client('neuprint-pre.janelia.org', dataset='vnc')
 
 def fetch_downstream_connections(neuron_id):
     t1_ROIs = ["IntTct","LTct","LegNp(T1)(L)","LegNp(T1)(R)","NTct(UTct-T1)(L)","NTct(UTct-T1)(R)","mVAC(T1)(L)","mVAC(T1)(R)"]
@@ -9,7 +9,7 @@ def fetch_downstream_connections(neuron_id):
     connections = neuprint.fetch_simple_connections([neuron_id], downstream_criteria=t1_area, rois=t1_ROIs)
     synapse_values = connections[["bodyId_post", "weight"]].copy()
     synapse_values = synapse_values.set_index("bodyId_post")
-    synapse_values = synapse_values.loc[synapse_values['weight'] >= 5]
+    synapse_values = synapse_values.loc[synapse_values['weight'] > 10]
     # find neurons that go into the abdomen and remove them
     ROIs_to_avoid = ["ANm","LegNp(T3)(L)","LegNp(T3)(R)","HTct(UTct-T3)(L)","HTct(UTct-T3)(R)"]
     criteria = neuprint.queries.NeuronCriteria(bodyId=synapse_values.index.to_list(), rois=ROIs_to_avoid, roi_req="any")
@@ -50,7 +50,6 @@ def downstream_of(neuron_id, threshold):
         print(synapse_value)
 
 def get_type(neuron_ids):
-    client = neuprint.Client('neuprint.janelia.org', dataset='manc:v1.0')
     neurons, _ = neuprint.fetch_neurons(neuron_ids)
     neurons = neurons[["bodyId", "type"]].copy()
     neurons = neurons.set_index("bodyId")
@@ -68,7 +67,7 @@ def print_type():
     for t in types["type"].items():
         print(t[1])
 
-def cascade_csvs(neuron_id, threshold):
+def cascade_csvs(start_neuron, threshold):
     def make_csvs_in_list(neuron_list):
         downstream_neurons = []
         for neuron_id in neuron_list:
@@ -77,7 +76,7 @@ def cascade_csvs(neuron_id, threshold):
                 print("file already exists")
                 pass
             else:
-                downstream_new = make_csv(neuron_id, threshold)
+                downstream_new = make_csv(neuron_id, threshold, folder)
                 downstream_neurons = downstream_neurons+downstream_new
                 if len(downstream_new):
                     print("created file")
@@ -85,25 +84,30 @@ def cascade_csvs(neuron_id, threshold):
                     print("no downstream partners")
         return downstream_neurons
     # takes an initial starting neuron and finds its most significant downstream partners
-    # then does the same for each of the downstream partners for 3 layers
-    files = os.listdir()
-    print("downstream of",neuron_id)
-    first_layer = make_csvs_in_list([neuron_id])
+    # then does the same for each of the downstream partners for n layers
+    folder = str(start_neuron)+"-"+str(threshold)+"/"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    files = os.listdir(folder)
+    print("downstream of",start_neuron)
+    first_layer = make_csvs_in_list([start_neuron])
     print("second layer")
+    threshold=threshold
     second_layer = make_csvs_in_list(first_layer)
     print("third_layer")
+    threshold=threshold
     third_layer = make_csvs_in_list(second_layer)
     #print("fourth layer")
     #make_csvs_in_list(third_layer)
     
-def make_csv(neuron_id, threshold):
+def make_csv(neuron_id, threshold, folder=""):
     dataframe = get_percent_input(neuron_id)
-    dataframe = dataframe.loc[dataframe['percent'] >= 1]
-    dataframe = dataframe.loc[dataframe['weight'] >= threshold]
+    dataframe = dataframe.loc[dataframe['percent'] >= threshold]
+    #dataframe = dataframe.loc[dataframe['weight'] >= threshold]
     dataframe = dataframe.sort_values("weight",ascending=False)
     if dataframe.size == 0:
         return []
-    dataframe.to_csv(str(neuron_id)+"_downstreampartners.csv")
+    dataframe.to_csv(folder+str(neuron_id)+"_downstreampartners.csv")
     return dataframe.index.to_list()
 
 def synapses_between(upstream,downstream):
