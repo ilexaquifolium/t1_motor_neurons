@@ -5,15 +5,15 @@ client = neuprint.Client('neuprint-pre.janelia.org', dataset='vnc')
 
 def fetch_downstream_connections(neuron_id):
     t1_ROIs = ["IntTct","LTct","LegNp(T1)(L)","LegNp(T1)(R)","NTct(UTct-T1)(L)","NTct(UTct-T1)(R)","mVAC(T1)(L)","mVAC(T1)(R)"]
-    t1_area = neuprint.queries.NeuronCriteria(rois=["LegNp(T1)(L)","LegNp(T1)(R)"], roi_req="any")
-    connections = neuprint.fetch_simple_connections([neuron_id], downstream_criteria=t1_area, rois=t1_ROIs)
+    t1_area = neuprint.queries.NeuronCriteria(rois=["LegNp(T1)(L)","LegNp(T1)(R)"], roi_req="any", client=client)
+    connections = neuprint.fetch_simple_connections([neuron_id], downstream_criteria=t1_area, rois=t1_ROIs, client=client)
     synapse_values = connections[["bodyId_post", "weight"]].copy()
     synapse_values = synapse_values.set_index("bodyId_post")
     synapse_values = synapse_values.loc[synapse_values['weight'] > 10]
     # find neurons that go into the abdomen and remove them
     ROIs_to_avoid = ["ANm","LegNp(T3)(L)","LegNp(T3)(R)","HTct(UTct-T3)(L)","HTct(UTct-T3)(R)"]
-    criteria = neuprint.queries.NeuronCriteria(bodyId=synapse_values.index.to_list(), rois=ROIs_to_avoid, roi_req="any")
-    neurons_to_remove,_ = neuprint.fetch_neurons(criteria)
+    criteria = neuprint.queries.NeuronCriteria(bodyId=synapse_values.index.to_list(), rois=ROIs_to_avoid, roi_req="any", client=client)
+    neurons_to_remove,_ = neuprint.fetch_neurons(criteria, client=client)
     neurons_to_remove = neurons_to_remove.bodyId.to_list()
     return synapse_values.loc[~synapse_values.index.isin(neurons_to_remove)]
 
@@ -22,7 +22,7 @@ def get_percent_input(neuron_id):
     IDs = conn_table.index.to_list()
     if not len(IDs):
         return pd.DataFrame({"percent":[], "weight":[]})
-    neurons,_ = neuprint.fetch_neurons(IDs)
+    neurons,_ = neuprint.fetch_neurons(IDs, client=client)
     neurons = neurons.set_index("bodyId")
     neurons = neurons.reindex(IDs)
     # remove fragments by filtering out IDs with no soma location
@@ -33,7 +33,7 @@ def get_percent_input(neuron_id):
     return inputs.sort_values("percent",ascending=False)
 
 def fetch_upstream_connections(neuron_id):
-    connections = neuprint.fetch_simple_connections(None,[neuron_id])
+    connections = neuprint.fetch_simple_connections(None,[neuron_id], client=client)
     synapse_values = connections[["bodyId_pre", "weight"]].copy()
     synapse_values = synapse_values.set_index("bodyId_pre")
     return synapse_values
@@ -111,4 +111,4 @@ def make_csv(neuron_id, threshold, folder=""):
     return dataframe.index.to_list()
 
 def synapses_between(upstream,downstream):
-    return neuprint.fetch_simple_connections([upstream], [downstream])
+    return neuprint.fetch_simple_connections([upstream], [downstream], client=client)

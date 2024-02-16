@@ -85,10 +85,10 @@ def cascade_csvs(start_neuron, threshold):
     print("downstream of",start_neuron)
     first_layer = make_csvs_in_list([start_neuron])
     print("second layer")
-    threshold=1.5*threshold
+    #threshold=1*threshold
     second_layer = make_csvs_in_list(first_layer)
     print("third_layer")
-    threshold=1.5*threshold
+    #threshold=1*threshold
     third_layer = make_csvs_in_list(second_layer)
     #print("fourth layer")
     #make_csvs_in_list(third_layer)
